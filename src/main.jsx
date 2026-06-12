@@ -1,103 +1,340 @@
-import React, { useMemo, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { motion } from "framer-motion";
+import React, { useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import {
-  AlertCircle,
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardCheck,
-  Clock3,
-  Download,
-  Eye,
-  FileText,
-  HelpCircle,
-  Info,
-  LockKeyhole,
-  Mail,
-  MessageCircle,
-  Paperclip,
-  Phone,
-  Search,
-  ShieldCheck,
-  UploadCloud,
-} from "lucide-react";
-import "./index.css";
+  AlertTriangle, ArrowLeft, Bell, CheckCircle2, ChevronRight, Clock3, FileText,
+  FolderOpen, Home, LockKeyhole, LogOut, MessageSquare, Paperclip, Search,
+  ShieldCheck, UploadCloud, UserRound, XCircle, Zap
+} from 'lucide-react';
+import './styles.css';
 
-const NAV = ["Beranda", "Profil", "Peraturan", "Pelaku Pasar", "Informasi Publik", "Berita", "Kontak"];
-const STEPS = ["Jenis Layanan", "Identitas Pelapor", "Detail Pengaduan", "Bukti Pendukung", "Tinjau & Kirim", "Status Pengaduan"];
-const sampleTimeline = [
-  { title: "Pengaduan diterima", note: "Nomor tiket BPP-2026-000184 telah diterbitkan dan bukti pengaduan dikirim ke email pelapor.", time: "20 Mei 2026, 08:12 WIB", done: true },
-  { title: "Verifikasi awal Bappebti", note: "Petugas melakukan validasi kelengkapan data, kategori, dan kewenangan penanganan.", time: "20 Mei 2026, 09:05 WIB", done: true },
-  { title: "Diteruskan ke pelaku usaha terkait", note: "Pengaduan telah dikirim ke PIC platform untuk investigasi dan tanggapan resmi.", time: "20 Mei 2026, 10:42 WIB", done: true },
-  { title: "Menunggu tanggapan pelaku usaha", note: "Platform wajib memberikan tanggapan awal sesuai SLA yang ditentukan.", time: "Sisa waktu 18 jam", done: false },
-  { title: "Validasi penyelesaian", note: "Bappebti dan pelapor akan memvalidasi tindak lanjut sebelum tiket ditutup.", time: "Belum dimulai", done: false },
+const platforms = [
+  { name: 'PT Aset Digital Berkat', brand: 'Tokocrypto', type: 'Pedagang Fisik Aset Kripto' },
+  { name: 'PT Kagum Teknologi Indonesia', brand: 'Ajaib Kripto', type: 'Pedagang Fisik Aset Kripto' },
+  { name: 'PT Bumi Santosa Cemerlang', brand: 'Pluang Crypto', type: 'Pedagang Fisik Aset Kripto' },
+  { name: 'PT Tumbuh Bersama Nano', brand: 'Nanovest', type: 'Pedagang Fisik Aset Kripto' },
+  { name: 'Ajaib Futures Asia', brand: 'Ajaib Futures', type: 'Pialang Berjangka' },
+  { name: 'Alpha Centauri Berjangka', brand: 'Alpha Futures', type: 'Pialang Berjangka' },
+  { name: 'Genesis Gemilang Futures', brand: 'GGF', type: 'Pialang Berjangka' },
+  { name: 'Glori Investama Berjangka', brand: 'Glori Futures', type: 'Pialang Berjangka' },
+  { name: 'Indoforex Nasional Futures', brand: 'Indoforex', type: 'Pialang Berjangka' },
+  { name: 'Lainnya / belum ditemukan', brand: 'Perlu verifikasi Bappebti', type: 'Manual Review' }
 ];
 
-function Badge({ children, tone = "blue" }) {
-  const map = {
-    blue: "bg-[#0b3042] text-white",
-    pale: "bg-[#eef4f6] text-[#0b3042] border border-[#d7e4e8]",
-    green: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    amber: "bg-amber-50 text-amber-800 border border-amber-200",
-    red: "bg-rose-50 text-rose-700 border border-rose-200",
-  };
-  return <span className={`inline-flex items-center rounded-sm px-3 py-1 text-xs font-medium tracking-wide ${map[tone]}`}>{children}</span>;
-}
+const categories = [
+  'Dana / Withdrawal', 'Deposit belum masuk', 'Transaksi tidak dikenali',
+  'Akun dibekukan / tidak dapat akses', 'Dugaan penipuan', 'Platform tidak merespon',
+  'Saldo / aset tidak sesuai', 'Masalah kontrak / order', 'Lainnya'
+];
 
-function Header({ setPage }) {
+const statusMeta = {
+  Draft: ['neutral', 'Belum dikirim'],
+  Submitted: ['blue', 'Pengaduan telah diterima'],
+  'Under Verification': ['blue', 'Pemeriksaan kelengkapan awal'],
+  'Sent to Platform': ['purple', 'Diteruskan ke pihak terkait'],
+  'In Progress': ['orange', 'Sedang ditangani'],
+  'Waiting for User': ['red', 'Butuh tindakan dari Anda'],
+  'Resolution Proposed': ['green', 'Solusi menunggu konfirmasi'],
+  'Escalated to Bappebti': ['red', 'Dalam supervisi regulator'],
+  Closed: ['green', 'Selesai'],
+  'Rejected / Invalid': ['neutral', 'Tidak dapat diproses']
+};
+
+const initialCases = [
+  {
+    id: 'BPP-2026-000184',
+    title: 'Penarikan dana belum diterima',
+    platform: 'PT Aset Digital Berkat',
+    brand: 'Tokocrypto',
+    category: 'Dana / Withdrawal',
+    status: 'Waiting for User',
+    priority: 'High',
+    channel: 'BAPPEBTI PORTAL',
+    sla: '18 jam tersisa',
+    updatedAt: '12 Jun 2026, 09:20',
+    createdAt: '11 Jun 2026, 15:42',
+    amount: '',
+    userAction: 'Platform meminta bukti mutasi rekening dan log withdrawal.',
+    summary: 'Pengguna melaporkan withdrawal yang sudah berhasil di aplikasi, tetapi dana belum diterima di rekening tujuan.',
+    riskNote: 'Butuh bukti settlement, mutasi rekening, dan log withdrawal dari platform.',
+    evidence: ['screenshot-withdrawal.png', 'mutasi-rekening.pdf'],
+    timeline: [
+      ['Submitted', 'Pengaduan dikirim melalui Bappebti Portal', '11 Jun 2026, 15:42'],
+      ['Under Verification', 'Kelengkapan data awal diverifikasi', '11 Jun 2026, 16:08'],
+      ['Sent to Platform', 'Pengaduan diteruskan ke PT Aset Digital Berkat', '11 Jun 2026, 16:20'],
+      ['Waiting for User', 'Platform meminta klarifikasi tambahan', '12 Jun 2026, 09:20']
+    ]
+  },
+  {
+    id: 'BPP-2026-000176',
+    title: 'Platform tidak merespon tiket bantuan',
+    platform: 'Alpha Centauri Berjangka',
+    brand: 'Alpha Futures',
+    category: 'Platform tidak merespon',
+    status: 'In Progress',
+    priority: 'Medium',
+    channel: 'BAPPEBTI PORTAL',
+    sla: '1 hari 6 jam tersisa',
+    updatedAt: '12 Jun 2026, 08:40',
+    createdAt: '10 Jun 2026, 10:30',
+    amount: '',
+    userAction: '',
+    summary: 'Pengguna melaporkan belum ada jawaban atas tiket bantuan yang dibuat di platform.',
+    riskNote: 'Perlu validasi nomor tiket dan riwayat komunikasi platform.',
+    evidence: ['email-ticket.pdf'],
+    timeline: [
+      ['Submitted', 'Pengaduan diterima', '10 Jun 2026, 10:30'],
+      ['Sent to Platform', 'Pengaduan diteruskan ke Alpha Centauri Berjangka', '10 Jun 2026, 11:00'],
+      ['In Progress', 'Platform sedang melakukan investigasi', '12 Jun 2026, 08:40']
+    ]
+  },
+  {
+    id: 'BPP-2026-000155',
+    title: 'Solusi pengembalian biaya administrasi',
+    platform: 'PT Bumi Santosa Cemerlang',
+    brand: 'Pluang Crypto',
+    category: 'Saldo / aset tidak sesuai',
+    status: 'Resolution Proposed',
+    priority: 'Low',
+    channel: 'BAPPEBTI PORTAL',
+    sla: 'Menunggu konfirmasi Anda',
+    updatedAt: '11 Jun 2026, 14:12',
+    createdAt: '08 Jun 2026, 09:10',
+    amount: '',
+    userAction: 'Mohon tinjau solusi yang diajukan platform.',
+    summary: 'Platform menawarkan koreksi biaya administrasi dan penyesuaian saldo.',
+    riskNote: 'Menunggu konfirmasi pengguna sebelum case ditutup.',
+    evidence: ['proposal-resolusi.pdf'],
+    timeline: [
+      ['Submitted', 'Pengaduan dikirim', '08 Jun 2026, 09:10'],
+      ['In Progress', 'Platform melakukan pengecekan', '09 Jun 2026, 11:35'],
+      ['Resolution Proposed', 'Solusi diajukan ke pengguna', '11 Jun 2026, 14:12']
+    ]
+  }
+];
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [page, setPage] = useState('login');
+  const [cases, setCases] = useState(initialCases);
+  const [selectedId, setSelectedId] = useState(initialCases[0].id);
+  const selectedCase = cases.find(c => c.id === selectedId) || cases[0];
+
+  function navigate(next) {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function login() {
+    setIsLoggedIn(true);
+    navigate('dashboard');
+  }
+
+  function logout() {
+    setIsLoggedIn(false);
+    navigate('login');
+  }
+
+  function openCase(id) {
+    setSelectedId(id);
+    navigate('detail');
+  }
+
+  function addCase(payload) {
+    const selectedPlatform = platforms.find(p => p.name === payload.platform) || platforms[0];
+    const newCase = {
+      id: `BPP-2026-${String(200 + cases.length).padStart(6, '0')}`,
+      title: payload.title,
+      platform: selectedPlatform.name,
+      brand: selectedPlatform.brand,
+      category: payload.category,
+      status: 'Submitted',
+      priority: payload.priority,
+      channel: 'BAPPEBTI PORTAL',
+      sla: '2 hari kerja estimasi respon awal',
+      updatedAt: 'Baru saja',
+      createdAt: 'Baru saja',
+      amount: payload.amount,
+      userAction: '',
+      summary: payload.description,
+      riskNote: payload.amount ? 'Nilai transaksi diisi oleh pelapor dan akan diverifikasi bersama bukti pendukung.' : 'Nominal tidak diisi. Case tetap dapat diproses berdasarkan kronologi dan bukti.',
+      evidence: payload.files ? ['dokumen-pendukung.zip'] : [],
+      timeline: [['Submitted', 'Pengaduan berhasil dikirim melalui Bappebti Portal', 'Baru saja']]
+    };
+    setCases([newCase, ...cases]);
+    setSelectedId(newCase.id);
+    navigate('detail');
+  }
+
+  if (!isLoggedIn) return <AuthScreen onLogin={login} />;
+
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-        <button onClick={() => setPage("landing")} className="flex items-center gap-3 text-left">
-          <div className="relative h-12 w-12 overflow-hidden rounded-sm bg-white">
-            <div className="absolute left-1 top-2 h-8 w-10 rounded-full border-[5px] border-[#1f7fa0] border-r-transparent border-b-transparent rotate-[-18deg]" />
-            <div className="absolute left-3 top-0 h-11 w-8 rounded-full border-[4px] border-[#6aa84f] border-l-transparent border-b-transparent rotate-[20deg]" />
-            <div className="absolute left-1 top-7 h-[4px] w-10 bg-[#1f7fa0] rotate-[10deg]" />
-          </div>
-          <div className="leading-tight">
-            <p className="text-[13px] font-semibold uppercase tracking-wider text-zinc-700">Kementerian</p>
-            <p className="text-[13px] font-semibold uppercase tracking-wider text-zinc-700">Perdagangan</p>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Republik Indonesia</p>
-          </div>
-        </button>
-        <nav className="hidden items-center gap-8 lg:flex">
-          {NAV.map((item) => <button key={item} className="flex items-center gap-1 text-[15px] text-zinc-700 hover:text-[#0b3042]">{item}{["Profil", "Peraturan", "Pelaku Pasar", "Informasi Publik", "Berita"].includes(item) && <ChevronDown className="h-3.5 w-3.5" />}</button>)}
-        </nav>
-        <button onClick={() => setPage("tracking")} className="rounded-sm border border-[#0b3042] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0b3042] hover:bg-[#0b3042] hover:text-white">Cek Status</button>
-      </div>
-    </header>
+    <div className="appShell">
+      <Sidebar page={page} navigate={navigate} logout={logout} />
+      <main className="mainArea">
+        <Topbar />
+        {page === 'dashboard' && <Dashboard cases={cases} openCase={openCase} navigate={navigate} />}
+        {page === 'cases' && <CaseList cases={cases} openCase={openCase} />}
+        {page === 'new' && <ComplaintWizard onSubmit={addCase} />}
+        {page === 'detail' && <CaseDetail data={selectedCase} navigate={navigate} />}
+        {page === 'notifications' && <Notifications cases={cases} openCase={openCase} />}
+        {page === 'profile' && <Profile />}
+      </main>
+    </div>
   );
 }
 
-function Footer() {
-  return <footer className="mt-16 border-t border-zinc-200 bg-[#f5f5f5]"><div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 py-10 md:grid-cols-4"><div className="md:col-span-2"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0b3042]">Bappebti</p><p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">Layanan Pengaduan Online untuk membantu masyarakat menyampaikan pengaduan, memantau tindak lanjut, dan menerima informasi status penanganan secara transparan.</p></div><div><p className="text-sm font-semibold text-zinc-800">Kontak Bantuan</p><div className="mt-3 space-y-2 text-sm text-zinc-600"><p className="flex items-center gap-2"><Phone className="h-4 w-4" /> 021-xxxx-xxxx</p><p className="flex items-center gap-2"><Mail className="h-4 w-4" /> layanan@bappebti.go.id</p></div></div><div><p className="text-sm font-semibold text-zinc-800">Jam Layanan</p><p className="mt-3 text-sm leading-6 text-zinc-600">Senin–Jumat<br />09.00–16.00 WIB</p></div></div></footer>;
+function AuthScreen({ onLogin }) {
+  const [mode, setMode] = useState('login');
+  return (
+    <div className="authPage">
+      <div className="authHero">
+        <img src="/assets/bappebti-logo.svg" alt="Bappebti" className="heroLogo" />
+        <span className="pill"><ShieldCheck size={16}/> Kanal Pengaduan Resmi</span>
+        <h1>Layanan Pengaduan Bappebti</h1>
+        <p>Kelola pengaduan Anda secara transparan: kirim laporan, pantau status, lengkapi bukti, dan konfirmasi penyelesaian dalam satu portal.</p>
+        <div className="heroGrid">
+          <div><CheckCircle2/> Validasi identitas pelapor</div>
+          <div><Clock3/> Status & SLA transparan</div>
+          <div><FolderOpen/> Bukti tersimpan per case</div>
+          <div><Zap/> Eskalasi bila diperlukan</div>
+        </div>
+      </div>
+      <div className="authCard">
+        <div className="switcher">
+          <button className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Masuk</button>
+          <button className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Daftar</button>
+        </div>
+        <h2>{mode === 'login' ? 'Masuk ke akun Anda' : 'Buat akun pelapor'}</h2>
+        <p className="muted">Akun diperlukan agar laporan dapat diverifikasi, dimiliki oleh pelapor yang sah, dan dipantau sampai selesai.</p>
+        {mode === 'register' && <Input label="Nama lengkap" placeholder="Contoh: Andi Pratama" />}
+        <Input label="Email / Nomor HP" placeholder="andi@email.com" />
+        {mode === 'register' && <Input label="NIK / Identitas" placeholder="Digunakan untuk validasi, tidak ditampilkan publik" />}
+        <Input label="Kata sandi" placeholder="••••••••" type="password" />
+        {mode === 'register' && <Input label="Ulangi kata sandi" placeholder="••••••••" type="password" />}
+        <button className="primary full" onClick={onLogin}>{mode === 'login' ? 'Masuk ke Dashboard' : 'Daftar & Masuk'}</button>
+        <div className="securityNote"><LockKeyhole size={16}/> Data Anda digunakan hanya untuk proses validasi dan penanganan pengaduan.</div>
+      </div>
+    </div>
+  );
 }
-function Layout({ children, setPage }) { return <div className="min-h-screen bg-[#f3f3f3] font-sans text-zinc-800"><Header setPage={setPage} />{children}<Footer /></div>; }
-function HeroStat({ value, label }) { return <div className="border-l-4 border-[#0b3042] bg-[#f5f5f5] px-4 py-3"><p className="text-lg font-semibold text-[#0b3042]">{value}</p><p className="mt-1 text-xs leading-5 text-zinc-500">{label}</p></div>; }
-function FlowItem({ number, title, text }) { return <div className="flex gap-4 border-b border-dashed border-zinc-200 pb-4 last:border-0 last:pb-0"><div className="flex h-10 w-10 shrink-0 items-center justify-center bg-[#0b3042] text-sm font-semibold text-white">{number}</div><div><p className="font-semibold text-zinc-800">{title}</p><p className="mt-1 text-sm leading-6 text-zinc-600">{text}</p></div></div>; }
-function Hero({ setPage }) { return <section className="border-b border-zinc-200 bg-white"><div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 py-12 lg:grid-cols-12 lg:py-16"><div className="lg:col-span-7"><Badge tone="pale">Layanan Pengaduan Online Bappebti</Badge><h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-zinc-800 lg:text-5xl">Sampaikan pengaduan Anda secara resmi, mudah, dan terpantau.</h1><p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600">Gunakan kanal ini untuk melaporkan kendala transaksi, layanan pelaku usaha, penarikan dana, akses akun, dugaan pelanggaran, atau permasalahan lain yang berada dalam ruang lingkup pengawasan Bappebti.</p><div className="mt-8 flex flex-wrap gap-3"><button onClick={() => setPage("service")} className="bg-[#0b3042] px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white shadow-sm hover:bg-[#082638]">Buat Pengaduan</button><button onClick={() => setPage("tracking")} className="border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700 hover:border-[#0b3042] hover:text-[#0b3042]">Cek Status Tiket</button></div><div className="mt-8 grid max-w-2xl grid-cols-3 gap-4"><HeroStat value="1" label="Tiket resmi untuk setiap pengaduan" /><HeroStat value="SLA" label="Pemantauan batas waktu tindak lanjut" /><HeroStat value="Audit" label="Riwayat proses tercatat" /></div></div><div className="lg:col-span-5"><div className="border border-zinc-200 bg-[#f8f8f8] p-5 shadow-sm"><div className="bg-[#0b3042] px-5 py-4 text-white"><p className="text-sm font-medium tracking-[0.18em]">ALUR PENGADUAN</p></div><div className="space-y-4 bg-white p-5"><FlowItem number="01" title="Isi data pengaduan" text="Lengkapi identitas, platform terkait, kronologi, dan nilai transaksi bila ada." /><FlowItem number="02" title="Unggah bukti pendukung" text="Lampirkan bukti transaksi, screenshot, komunikasi, atau dokumen pendukung." /><FlowItem number="03" title="Verifikasi Bappebti" text="Petugas memeriksa kelengkapan dan menentukan arah penanganan." /><FlowItem number="04" title="Tindak lanjut pelaku usaha" text="Pengaduan diteruskan kepada pihak terkait dan dimonitor sampai selesai." /></div></div></div></div></section>; }
-function Checklist({ text }) { return <div className="flex items-center gap-3 text-sm text-zinc-700"><CheckCircle2 className="h-5 w-5 text-[#1f7a5c]" />{text}</div>; }
-function InfoCard({ icon: Icon, title, text, action, onClick }) { return <div className="border border-zinc-200 bg-white p-7 shadow-sm"><div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#0b3042] text-white"><Icon className="h-7 w-7" /></div><h3 className="text-xl font-semibold text-zinc-800">{title}</h3><p className="mt-3 min-h-[72px] text-sm leading-6 text-zinc-600">{text}</p><button onClick={onClick} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[#0b3042]">{action} <ArrowRight className="h-4 w-4" /></button></div>; }
-function Landing({ setPage }) { return <Layout setPage={setPage}><Hero setPage={setPage} /><main className="mx-auto max-w-7xl px-6 py-12"><div className="grid grid-cols-1 gap-7 lg:grid-cols-3"><InfoCard icon={ClipboardCheck} title="Pengaduan Formal" text="Untuk keluhan yang membutuhkan verifikasi, nomor tiket, tindak lanjut, SLA, dan hasil penanganan." action="Mulai pengaduan" onClick={() => setPage("service")} /><InfoCard icon={MessageCircle} title="Kritik & Saran" text="Untuk masukan layanan, ide perbaikan, atau laporan umum yang tidak membutuhkan penanganan kasus formal." action="Kirim masukan" onClick={() => setPage("suggestion")} /><InfoCard icon={Search} title="Cek Status" text="Masukkan nomor tiket dan email/no. HP untuk melihat perkembangan penanganan pengaduan Anda." action="Cek status" onClick={() => setPage("tracking")} /></div><div className="mt-10 grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="border border-zinc-200 bg-white p-7 lg:col-span-7"><h2 className="text-2xl font-semibold text-zinc-800">Sebelum membuat pengaduan</h2><p className="mt-3 text-sm leading-7 text-zinc-600">Pastikan pengaduan berisi kronologi yang jelas, identitas pelapor yang dapat dihubungi, nama pelaku usaha/platform terkait, serta bukti pendukung agar proses verifikasi dapat dilakukan lebih cepat.</p><div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2"><Checklist text="Sudah menghubungi pihak platform terkait" /><Checklist text="Memiliki bukti transaksi atau nomor referensi" /><Checklist text="Mengetahui tanggal kejadian dan nominal" /><Checklist text="Menggunakan email/nomor HP aktif" /></div></div><div className="border border-zinc-200 bg-white p-7 lg:col-span-5"><h2 className="text-2xl font-semibold text-zinc-800">Kategori umum</h2><div className="mt-5 space-y-3">{["Dana / Withdrawal", "Transaksi", "Akun / Akses", "Dugaan Penipuan", "Perilaku Pelaku Usaha", "Data Pribadi"].map((item) => <div key={item} className="flex items-center justify-between border border-zinc-200 px-4 py-3 text-sm text-zinc-700">{item}<ArrowRight className="h-4 w-4 text-[#0b3042]" /></div>)}</div></div></div></main></Layout>; }
-function Stepper({ active }) { return <div className="mb-7 border border-zinc-200 bg-white p-5"><div className="grid grid-cols-2 gap-3 md:grid-cols-6">{STEPS.map((label, index) => { const current = index === active; const done = index < active; return <div key={label} className="flex items-center gap-3"><div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${done ? "bg-[#1f7a5c] text-white" : current ? "bg-[#0b3042] text-white" : "bg-zinc-100 text-zinc-400"}`}>{done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}</div><p className={`hidden text-xs leading-4 md:block ${current ? "font-semibold text-[#0b3042]" : "text-zinc-500"}`}>{label}</p></div>})}</div></div>; }
-function PageShell({ step, title, subtitle, children, setPage }) { return <Layout setPage={setPage}><main className="mx-auto max-w-7xl px-6 py-10"><div className="mb-6"><button onClick={() => setPage("landing")} className="mb-4 inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-[#0b3042]"><ArrowLeft className="h-4 w-4" /> Kembali ke beranda</button><h1 className="text-3xl font-semibold tracking-tight text-zinc-800">{title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{subtitle}</p></div><Stepper active={step} />{children}</main></Layout>; }
-function ServiceCard({ icon: Icon, title, text, points, onClick, recommended }) { return <button onClick={onClick} className="group border border-zinc-200 bg-white p-7 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#0b3042] hover:shadow-md"><div className="flex items-start justify-between"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0b3042] text-white"><Icon className="h-7 w-7" /></div>{recommended && <Badge tone="amber">Disarankan</Badge>}</div><h2 className="mt-5 text-xl font-semibold text-zinc-800">{title}</h2><p className="mt-3 min-h-[96px] text-sm leading-6 text-zinc-600">{text}</p><div className="mt-5 space-y-2">{points.map((point) => <Checklist key={point} text={point} />)}</div><div className="mt-7 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-[#0b3042]">Pilih layanan <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></div></button>; }
-function ServiceType({ setPage }) { return <PageShell setPage={setPage} step={0} title="Pilih jenis layanan" subtitle="Pilih kanal yang sesuai agar laporan Anda dapat diproses dengan tepat."><div className="grid grid-cols-1 gap-6 lg:grid-cols-3"><ServiceCard recommended icon={ClipboardCheck} title="Pengaduan Resmi" text="Untuk masalah yang membutuhkan nomor tiket, verifikasi Bappebti, tindak lanjut pelaku usaha, SLA, dan hasil penyelesaian." points={["Nomor tiket resmi", "Dapat dilacak", "Dapat diteruskan ke platform", "Memerlukan bukti pendukung"]} onClick={() => setPage("identity")} /><ServiceCard icon={MessageCircle} title="Kritik & Saran" text="Untuk masukan umum terkait layanan, informasi publik, atau perbaikan sistem yang tidak membutuhkan penanganan kasus formal." points={["Tidak selalu menjadi tiket formal", "Cocok untuk masukan layanan", "Tidak membutuhkan bukti transaksi", "Dapat dianalisis sebagai feedback"]} onClick={() => setPage("suggestion")} /><ServiceCard icon={HelpCircle} title="Butuh Bantuan Memilih?" text="Gunakan panduan singkat bila Anda belum yakin apakah laporan perlu masuk sebagai pengaduan formal atau kritik dan saran." points={["Panduan kategori", "Contoh kasus", "Estimasi data yang dibutuhkan", "Informasi kontak bantuan"]} onClick={() => setPage("guide")} /></div></PageShell>; }
-function FormField({ label, placeholder, wide, helper, textarea, select }) { return <div className={wide ? "md:col-span-2" : ""}><label className="mb-2 block text-sm font-semibold text-zinc-700">{label}</label><div className="relative">{textarea ? <div className="min-h-[120px] border border-zinc-300 bg-white px-4 py-3 text-sm leading-6 text-zinc-500">{placeholder}</div> : <div className="border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-500">{placeholder}</div>}{select && <ChevronDown className="absolute right-3 top-3.5 h-4 w-4 text-zinc-400" />}</div>{helper && <p className="mt-1.5 text-xs leading-5 text-zinc-500">{helper}</p>}</div>; }
-function SideHelp({ title, icon: Icon, items }) { return <aside className="lg:col-span-4"><div className="border border-zinc-200 bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#0b3042] text-white"><Icon className="h-5 w-5" /></div><h2 className="text-lg font-semibold text-zinc-800">{title}</h2></div><div className="mt-5 space-y-4">{items.map((item) => <div key={item} className="flex gap-3 text-sm leading-6 text-zinc-600"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#1f7a5c]" />{item}</div>)}</div></div></aside>; }
-function Identity({ setPage }) { return <PageShell setPage={setPage} step={1} title="Identitas pelapor" subtitle="Data ini digunakan untuk verifikasi dan pengiriman notifikasi status pengaduan."><div className="grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="border border-zinc-200 bg-white p-7 lg:col-span-8"><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><FormField label="Nama lengkap" placeholder="Masukkan nama sesuai identitas" /><FormField label="Nomor identitas" placeholder="NIK / Paspor / Identitas lain" /><FormField label="Email aktif" placeholder="nama@email.com" /><FormField label="Nomor HP / WhatsApp" placeholder="08xx-xxxx-xxxx" /><FormField label="Provinsi domisili" placeholder="Pilih provinsi" select /><FormField label="Kota/Kabupaten" placeholder="Pilih kota/kabupaten" select /></div><div className="mt-7 flex justify-between border-t border-zinc-200 pt-5"><button onClick={() => setPage("service")} className="border border-zinc-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">Kembali</button><button onClick={() => setPage("complaint")} className="bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Lanjutkan</button></div></div><SideHelp title="Privasi & keamanan" icon={LockKeyhole} items={["Data pelapor hanya digunakan untuk proses pengaduan.", "Notifikasi dikirim ke email/nomor HP yang terdaftar.", "Setiap perubahan status akan tercatat dalam riwayat tiket."]} /></div></PageShell>; }
-function ComplaintDetail({ setPage }) { return <PageShell setPage={setPage} step={2} title="Detail pengaduan" subtitle="Isi informasi platform, kategori masalah, kronologi kejadian, dan data transaksi bila tersedia."><div className="grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="border border-zinc-200 bg-white p-7 lg:col-span-8"><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><FormField label="Nama pelaku usaha / platform" placeholder="Cari atau pilih nama platform" select helper="Sistem dapat melakukan pencocokan awal terhadap data pelaku usaha." /><FormField label="User ID / Nomor akun di platform" placeholder="Contoh: USR-884291" helper="Opsional, tetapi sangat membantu proses verifikasi." /><FormField label="Kategori pengaduan" placeholder="Dana / Withdrawal" select /><FormField label="Tingkat urgensi menurut pelapor" placeholder="Normal / Mendesak" select /><FormField label="Tanggal kejadian" placeholder="Pilih tanggal" /><FormField label="Nominal terkait" placeholder="Rp 0" /><FormField wide label="Nomor transaksi / referensi" placeholder="Masukkan nomor transaksi bila tersedia" /><FormField wide textarea label="Kronologi pengaduan" placeholder="Tuliskan kronologi dengan jelas: apa yang terjadi, kapan terjadi, pihak yang sudah dihubungi, dan respons terakhir dari platform." /></div><div className="mt-7 flex justify-between border-t border-zinc-200 pt-5"><button onClick={() => setPage("identity")} className="border border-zinc-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">Kembali</button><button onClick={() => setPage("evidence")} className="bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Lanjutkan</button></div></div><SideHelp title="Tips pengisian kronologi" icon={Info} items={["Gunakan urutan waktu yang jelas.", "Sebutkan nomor transaksi dan nominal bila ada.", "Jelaskan apakah sudah menghubungi pihak platform.", "Hindari memasukkan password atau PIN."]} /></div></PageShell>; }
-function UploadedFile({ name, size, status }) { return <div className="flex items-center justify-between border border-zinc-200 bg-white px-4 py-3"><div className="flex items-center gap-3"><FileText className="h-5 w-5 text-[#0b3042]" /><div><p className="text-sm font-semibold text-zinc-800">{name}</p><p className="text-xs text-zinc-500">{size}</p></div></div><Badge tone="green">{status}</Badge></div>; }
-function EvidenceUpload({ setPage }) { return <PageShell setPage={setPage} step={3} title="Bukti pendukung" subtitle="Unggah dokumen atau gambar yang dapat memperkuat pengaduan Anda."><div className="grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="border border-zinc-200 bg-white p-7 lg:col-span-8"><div className="border-2 border-dashed border-zinc-300 bg-[#fafafa] px-8 py-12 text-center"><UploadCloud className="mx-auto h-12 w-12 text-[#0b3042]" /><h2 className="mt-4 text-xl font-semibold text-zinc-800">Tarik file ke sini atau pilih file</h2><p className="mt-2 text-sm text-zinc-500">Format: PDF, JPG, PNG. Maksimum 10MB per file.</p><button className="mt-6 border border-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#0b3042]">Pilih file</button></div><div className="mt-6 space-y-3"><UploadedFile name="bukti-withdrawal.png" size="1.2 MB" status="Berhasil diunggah" /><UploadedFile name="chat-customer-service.pdf" size="620 KB" status="Berhasil diunggah" /></div><div className="mt-7 flex justify-between border-t border-zinc-200 pt-5"><button onClick={() => setPage("complaint")} className="border border-zinc-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">Kembali</button><button onClick={() => setPage("review")} className="bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Tinjau Pengaduan</button></div></div><SideHelp title="Bukti yang disarankan" icon={Paperclip} items={["Screenshot transaksi atau withdrawal.", "Bukti transfer atau mutasi rekening.", "Riwayat komunikasi dengan platform.", "Dokumen pendukung lain yang relevan."]} /></div></PageShell>; }
-function ReviewBlock({ title, rows }) { return <div className="border border-zinc-200 bg-white p-6"><h2 className="text-lg font-semibold text-zinc-800">{title}</h2><div className="mt-4 divide-y divide-zinc-100">{rows.map(([label, value], idx) => <div key={`${label}-${idx}`} className="grid grid-cols-12 gap-4 py-3 text-sm"><p className="col-span-4 font-medium text-zinc-500">{label}</p><p className="col-span-8 leading-6 text-zinc-800">{value}</p></div>)}</div></div>; }
-function ReviewSubmit({ setPage }) { return <PageShell setPage={setPage} step={4} title="Tinjau & kirim pengaduan" subtitle="Periksa kembali data sebelum pengaduan dikirim ke Bappebti."><div className="grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="space-y-5 lg:col-span-8"><ReviewBlock title="Identitas Pelapor" rows={[["Nama", "Andi Pratama"], ["Email", "andi@email.com"], ["No. HP", "0812-xxxx-xxxx"], ["Domisili", "DKI Jakarta"]]} /><ReviewBlock title="Detail Pengaduan" rows={[["Platform", "PT Bursa Digital Nusantara"], ["Kategori", "Dana / Withdrawal"], ["Nominal", "Rp 27.500.000"], ["Tanggal Kejadian", "17 Mei 2026"], ["Kronologi", "Dana penarikan belum diterima setelah 3 hari kerja dan belum ada estimasi penyelesaian dari platform."]]} /><ReviewBlock title="Bukti Pendukung" rows={[["File", "bukti-withdrawal.png"], ["File", "chat-customer-service.pdf"]]} /><div className="border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900"><p className="font-semibold">Pernyataan pelapor</p><p className="mt-1">Dengan mengirimkan pengaduan ini, pelapor menyatakan bahwa informasi yang diberikan benar dan dapat digunakan untuk proses verifikasi serta tindak lanjut sesuai ketentuan yang berlaku.</p></div><div className="flex justify-between border-t border-zinc-200 pt-5"><button onClick={() => setPage("evidence")} className="border border-zinc-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-600">Kembali</button><button onClick={() => setPage("confirmation")} className="bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Kirim Pengaduan</button></div></div><SideHelp title="Setelah dikirim" icon={ShieldCheck} items={["Sistem menerbitkan nomor tiket.", "Pelapor menerima email konfirmasi.", "Bappebti melakukan verifikasi awal.", "Pengaduan diteruskan ke pihak terkait bila memenuhi kriteria."]} /></div></PageShell>; }
-function Confirmation({ setPage }) { return <PageShell setPage={setPage} step={5} title="Pengaduan berhasil dikirim" subtitle="Simpan nomor tiket berikut untuk memantau perkembangan pengaduan Anda."><div className="mx-auto max-w-3xl border border-zinc-200 bg-white p-8 text-center shadow-sm"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><CheckCircle2 className="h-9 w-9" /></div><h2 className="mt-5 text-2xl font-semibold text-zinc-800">Terima kasih. Pengaduan Anda telah diterima.</h2><p className="mt-3 text-sm leading-6 text-zinc-600">Nomor tiket dan ringkasan pengaduan telah dikirim ke email/nomor HP yang Anda daftarkan.</p><div className="mx-auto mt-6 max-w-md bg-[#0b3042] p-5 text-white"><p className="text-xs uppercase tracking-[0.2em] text-white/70">Nomor Tiket</p><p className="mt-2 font-mono text-2xl font-semibold">BPP-2026-000184</p></div><div className="mt-7 flex justify-center gap-3"><button className="inline-flex items-center gap-2 border border-zinc-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-zinc-700"><Download className="h-4 w-4" /> Unduh Bukti</button><button onClick={() => setPage("tracking")} className="inline-flex items-center gap-2 bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white"><Eye className="h-4 w-4" /> Lihat Status</button></div></div></PageShell>; }
-function TimelineItem({ item, last }) { return <div className="flex gap-4"><div className="flex flex-col items-center"><div className={`flex h-9 w-9 items-center justify-center rounded-full ${item.done ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-400"}`}>{item.done ? <CheckCircle2 className="h-5 w-5" /> : <Clock3 className="h-5 w-5" />}</div>{!last && <div className="h-12 w-px bg-zinc-200" />}</div><div><p className="font-semibold text-zinc-800">{item.title}</p><p className="mt-1 text-sm leading-6 text-zinc-600">{item.note}</p><p className="mt-1 text-xs text-zinc-400">{item.time}</p></div></div>; }
-function Tracking({ setPage }) { return <Layout setPage={setPage}><main className="mx-auto max-w-7xl px-6 py-10"><div className="mb-7"><h1 className="text-3xl font-semibold tracking-tight text-zinc-800">Cek status pengaduan</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">Masukkan nomor tiket dan email/no. HP pelapor untuk melihat perkembangan penanganan.</p></div><div className="grid grid-cols-1 gap-7 lg:grid-cols-12"><div className="border border-zinc-200 bg-white p-7 lg:col-span-4"><FormField label="Nomor tiket" placeholder="BPP-2026-000184" /><div className="mt-5"><FormField label="Email / No. HP" placeholder="andi@email.com" /></div><button className="mt-6 w-full bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Cek Status</button><p className="mt-4 text-xs leading-5 text-zinc-500">Untuk keamanan, sebagian detail hanya ditampilkan setelah data cocok dengan identitas pelapor.</p></div><div className="border border-zinc-200 bg-white p-7 lg:col-span-8"><div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 pb-5"><div><p className="font-mono text-sm text-zinc-500">BPP-2026-000184</p><h2 className="mt-1 text-2xl font-semibold text-zinc-800">Penarikan dana belum diterima</h2><p className="mt-2 text-sm text-zinc-500">Platform: PT Bursa Digital Nusantara</p></div><div className="flex gap-2"><Badge tone="amber">Dalam Proses</Badge><Badge tone="pale">Sisa SLA 18 jam</Badge></div></div><div className="mt-6 space-y-6">{sampleTimeline.map((item, idx) => <TimelineItem key={item.title} item={item} last={idx === sampleTimeline.length - 1} />)}</div><div className="mt-7 border border-[#d7e4e8] bg-[#eef4f6] p-5"><p className="flex items-center gap-2 text-sm font-semibold text-[#0b3042]"><AlertCircle className="h-4 w-4" /> Informasi untuk pelapor</p><p className="mt-2 text-sm leading-6 text-zinc-600">Saat ini pengaduan sedang menunggu tanggapan dari pelaku usaha terkait. Anda akan menerima notifikasi saat terdapat pembaruan atau permintaan klarifikasi.</p></div></div></div></main></Layout>; }
-function Suggestion({ setPage }) { return <Layout setPage={setPage}><main className="mx-auto max-w-4xl px-6 py-10"><h1 className="text-3xl font-semibold tracking-tight text-zinc-800">Kritik & Saran</h1><p className="mt-2 text-sm leading-6 text-zinc-600">Gunakan halaman ini untuk mengirimkan masukan umum terkait layanan Bappebti.</p><div className="mt-7 border border-zinc-200 bg-white p-7"><div className="grid grid-cols-1 gap-5 md:grid-cols-2"><FormField label="Nama" placeholder="Nama Anda" /><FormField label="Email / No. HP" placeholder="Kontak yang dapat dihubungi" /><FormField wide label="Topik masukan" placeholder="Pilih topik" select /><FormField wide textarea label="Isi kritik / saran" placeholder="Tuliskan masukan Anda di sini." /></div><div className="mt-7 flex justify-end border-t border-zinc-200 pt-5"><button onClick={() => setPage("landing")} className="bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Kirim Masukan</button></div></div></main></Layout>; }
-function Guide({ setPage }) { return <Layout setPage={setPage}><main className="mx-auto max-w-5xl px-6 py-10"><h1 className="text-3xl font-semibold tracking-tight text-zinc-800">Panduan memilih layanan</h1><div className="mt-7 grid grid-cols-1 gap-6 md:grid-cols-2"><div className="border border-zinc-200 bg-white p-7"><h2 className="text-xl font-semibold text-zinc-800">Gunakan Pengaduan Resmi bila...</h2><div className="mt-5 space-y-3"><Checklist text="Ada masalah transaksi, dana, akun, layanan, atau dugaan pelanggaran." /><Checklist text="Anda membutuhkan nomor tiket dan tindak lanjut resmi." /><Checklist text="Ada pihak platform/pelaku usaha yang perlu dimintakan tanggapan." /></div><button onClick={() => setPage("identity")} className="mt-7 bg-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white">Buat Pengaduan</button></div><div className="border border-zinc-200 bg-white p-7"><h2 className="text-xl font-semibold text-zinc-800">Gunakan Kritik & Saran bila...</h2><div className="mt-5 space-y-3"><Checklist text="Anda ingin memberi masukan tentang layanan atau informasi publik." /><Checklist text="Tidak ada kasus transaksi spesifik yang perlu diselesaikan." /><Checklist text="Tidak membutuhkan verifikasi formal atau SLA penanganan kasus." /></div><button onClick={() => setPage("suggestion")} className="mt-7 border border-[#0b3042] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#0b3042]">Kirim Masukan</button></div></div></main></Layout>; }
-function App() { const [page, setPage] = useState("landing"); const screen = useMemo(() => { if (page === "service") return <ServiceType setPage={setPage} />; if (page === "identity") return <Identity setPage={setPage} />; if (page === "complaint") return <ComplaintDetail setPage={setPage} />; if (page === "evidence") return <EvidenceUpload setPage={setPage} />; if (page === "review") return <ReviewSubmit setPage={setPage} />; if (page === "confirmation") return <Confirmation setPage={setPage} />; if (page === "tracking") return <Tracking setPage={setPage} />; if (page === "suggestion") return <Suggestion setPage={setPage} />; if (page === "guide") return <Guide setPage={setPage} />; return <Landing setPage={setPage} />; }, [page]); return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen">{screen}</motion.div>; }
 
-createRoot(document.getElementById("root")).render(<App />);
+function Sidebar({ page, navigate, logout }) {
+  const items = [
+    ['dashboard', Home, 'Dashboard'], ['cases', FileText, 'Pengaduan Saya'], ['new', UploadCloud, 'Buat Pengaduan'],
+    ['notifications', Bell, 'Notifikasi'], ['profile', UserRound, 'Profil Akun']
+  ];
+  return <aside className="sidebar">
+    <img src="/assets/bappebti-logo.svg" alt="Bappebti" className="sideLogo" />
+    <nav>{items.map(([key, Icon, label]) => <button key={key} onClick={()=>navigate(key)} className={page===key?'active':''}><Icon size={18}/>{label}</button>)}</nav>
+    <button className="logout" onClick={logout}><LogOut size={18}/> Keluar</button>
+  </aside>;
+}
+
+function Topbar() {
+  return <header className="topbar">
+    <div>
+      <h2>Portal Publik Pengaduan</h2>
+      <p>Transparansi proses, kepemilikan case, dan tindak lanjut terukur.</p>
+    </div>
+    <div className="topActions"><span className="pill soft"><Bell size={15}/> 3 update</span><span className="avatar">AP</span></div>
+  </header>;
+}
+
+function Dashboard({ cases, openCase, navigate }) {
+  const stats = useMemo(() => ({
+    total: cases.length,
+    progress: cases.filter(c => ['In Progress', 'Sent to Platform', 'Under Verification'].includes(c.status)).length,
+    action: cases.filter(c => ['Waiting for User', 'Resolution Proposed'].includes(c.status)).length,
+    closed: cases.filter(c => c.status === 'Closed').length
+  }), [cases]);
+  return <section className="page">
+    <div className="welcomeCard">
+      <div><span className="pill"><ShieldCheck size={16}/> Akun Terverifikasi</span><h1>Selamat datang, Andi</h1><p>Pantau seluruh pengaduan Anda dan lihat tindakan yang diperlukan dari satu dashboard.</p></div>
+      <button className="primary" onClick={()=>navigate('new')}>Buat Pengaduan Baru</button>
+    </div>
+    <div className="statGrid">
+      <Stat title="Total Pengaduan" value={stats.total} icon={FileText}/>
+      <Stat title="Sedang Diproses" value={stats.progress} icon={Clock3}/>
+      <Stat title="Butuh Tindakan Anda" value={stats.action} icon={AlertTriangle}/>
+      <Stat title="Selesai" value={stats.closed} icon={CheckCircle2}/>
+    </div>
+    <div className="twoCol">
+      <div className="panel wide"><PanelTitle title="Pengaduan Terbaru" action="Lihat Semua" onClick={()=>navigate('cases')} />
+        <div className="caseRows">{cases.map(c => <CaseRow key={c.id} c={c} onClick={()=>openCase(c.id)} />)}</div>
+      </div>
+      <div className="panel"><h3>Action Required</h3>{cases.filter(c=>c.userAction).map(c => <div className="actionBox" key={c.id} onClick={()=>openCase(c.id)}><AlertTriangle size={18}/><div><b>{c.id}</b><p>{c.userAction}</p></div></div>)}</div>
+    </div>
+  </section>;
+}
+
+function Stat({ title, value, icon: Icon }) { return <div className="stat"><Icon size={22}/><span>{title}</span><strong>{value}</strong></div>; }
+function PanelTitle({ title, action, onClick }) { return <div className="panelTitle"><h3>{title}</h3><button onClick={onClick}>{action}<ChevronRight size={16}/></button></div>; }
+function Badge({ status }) { const meta = statusMeta[status] || ['neutral', status]; return <span className={`badge ${meta[0]}`}>{status}</span>; }
+
+function CaseRow({ c, onClick }) {
+  return <button className="caseRow" onClick={onClick}>
+    <div><b>{c.title}</b><span>{c.id} • {c.platform}</span></div>
+    <div><small>Channel of Complaint</small><strong>{c.channel}</strong></div>
+    <div><small>Kategori</small><strong>{c.category}</strong></div>
+    <div><small>SLA</small><strong>{c.sla}</strong></div>
+    <Badge status={c.status}/>
+  </button>;
+}
+
+function CaseList({ cases, openCase }) {
+  const [q, setQ] = useState('');
+  const filtered = cases.filter(c => JSON.stringify(c).toLowerCase().includes(q.toLowerCase()));
+  return <section className="page"><div className="pageHeader"><h1>Pengaduan Saya</h1><p>Seluruh pengaduan yang pernah Anda kirim melalui Bappebti Portal.</p></div>
+    <div className="searchBox"><Search size={18}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari nomor case, platform, kategori, atau status..." /></div>
+    <div className="panel"><div className="caseRows spacious">{filtered.map(c => <CaseRow key={c.id} c={c} onClick={()=>openCase(c.id)} />)}</div></div>
+  </section>;
+}
+
+function ComplaintWizard({ onSubmit }) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ category: categories[0], platform: platforms[0].name, priority: 'Medium', title: '', description: '', amount: '', files: false });
+  const update = (k,v) => setForm({ ...form, [k]: v });
+  return <section className="page"><div className="pageHeader"><h1>Buat Pengaduan Baru</h1><p>Ikuti langkah sederhana agar laporan Anda lengkap dan mudah diverifikasi.</p></div>
+    <div className="wizard"><div className="steps">{['Kategori','Platform','Kronologi','Bukti','Review'].map((s,i)=><div className={step>=i+1?'done':''} key={s}><span>{i+1}</span>{s}</div>)}</div>
+      <div className="wizardCard">
+        {step===1 && <><h2>Jenis pengaduan</h2><Select label="Kategori" value={form.category} onChange={v=>update('category',v)} options={categories}/><Select label="Tingkat urgensi" value={form.priority} onChange={v=>update('priority',v)} options={['Low','Medium','High']}/><Input label="Judul singkat" value={form.title} onChange={v=>update('title',v)} placeholder="Contoh: Penarikan dana belum diterima" /></>}
+        {step===2 && <><h2>Platform / member terkait</h2><Select label="Pilih platform" value={form.platform} onChange={v=>update('platform',v)} options={platforms.map(p=>p.name)} /><div className="platformHint">Daftar ini menggunakan contoh dari pelaku usaha terdaftar/berizin. Pada versi produksi, dropdown sebaiknya tersambung ke master data Bappebti.</div></>}
+        {step===3 && <><h2>Kronologi dan detail</h2><Input label="Channel of Complaint" value="BAPPEBTI PORTAL" readOnly/><Input label="Nominal transaksi (opsional)" value={form.amount} onChange={v=>update('amount',v)} placeholder="Contoh: 27500000 - boleh dikosongkan"/><TextArea label="Kronologi" value={form.description} onChange={v=>update('description',v)} placeholder="Jelaskan tanggal kejadian, nomor transaksi/tiket, respon platform, dan dampak yang Anda alami." /></>}
+        {step===4 && <><h2>Upload bukti pendukung</h2><div className="uploadBox" onClick={()=>update('files',true)}><Paperclip/><b>{form.files ? 'dokumen-pendukung.zip siap diunggah' : 'Klik untuk upload dokumen'}</b><p>Screenshot transaksi, mutasi rekening, email, chat, nomor tiket, atau bukti lainnya.</p></div></>}
+        {step===5 && <Review form={form}/>}        
+        <div className="wizardActions"><button className="secondary" disabled={step===1} onClick={()=>setStep(step-1)}>Kembali</button>{step<5 ? <button className="primary" onClick={()=>setStep(step+1)}>Lanjut</button> : <button className="primary" onClick={()=>onSubmit(form)}>Kirim Pengaduan</button>}</div>
+      </div>
+    </div>
+  </section>;
+}
+
+function Review({ form }) { return <div><h2>Review pengaduan</h2><div className="reviewGrid">{Object.entries({Judul:form.title||'-',Kategori:form.category,Platform:form.platform,'Channel of Complaint':'BAPPEBTI PORTAL','Nominal Opsional':form.amount||'Tidak diisi',Urgensi:form.priority,Kronologi:form.description||'-'}).map(([k,v])=><div key={k}><span>{k}</span><b>{v}</b></div>)}</div><div className="securityNote"><ShieldCheck size={16}/> Dengan mengirim pengaduan, Anda menyatakan informasi yang diberikan benar dan dapat diverifikasi.</div></div>; }
+
+function CaseDetail({ data, navigate }) {
+  return <section className="page"><button className="backBtn" onClick={()=>navigate('cases')}><ArrowLeft size={17}/> Kembali ke daftar</button>
+    <div className="caseHero"><div><span className="caseId">{data.id}</span><h1>{data.title}</h1><p>{data.platform} <span>({data.brand})</span></p></div><div className={`priority ${data.priority.toLowerCase()}`}>{data.priority}</div></div>
+    <div className="detailGrid">
+      <div className="detailMain">
+        <div className="panel"><div className="detailStats">
+          <Info label="Customer" value="Andi Pratama"/><Info label="Category" value={data.category}/><Info label="Channel of Complaint" value={data.channel}/><Info label="SLA" value={data.sla}/>
+        </div><div className="riskNote"><b>Risk Note</b><p>{data.riskNote}</p></div></div>
+        <div className="panel"><h3>Timeline Status</h3><div className="timeline">{data.timeline.map((t,i)=><div key={i} className="timelineItem"><span></span><div><b>{t[0]}</b><p>{t[1]}</p><small>{t[2]}</small></div></div>)}</div></div>
+        <div className="panel"><h3>Ringkasan Pengaduan</h3><p className="bodyText">{data.summary}</p></div>
+      </div>
+      <aside className="detailSide"><div className="panel"><h3>Status Saat Ini</h3><Badge status={data.status}/><p className="muted small">{statusMeta[data.status]?.[1]}</p>{data.userAction && <div className="actionBox"><AlertTriangle size={18}/><div><b>Tindakan diperlukan</b><p>{data.userAction}</p></div></div>}<button className="primary full"><MessageSquare size={17}/> Berikan Klarifikasi</button><button className="secondary full"><UploadCloud size={17}/> Tambah Bukti</button><button className="secondary full"><Zap size={17}/> Ajukan Eskalasi</button></div>
+      <div className="panel"><h3>Resolusi</h3><p className="muted small">Jika solusi sudah diajukan, Anda dapat menerima atau menolak dengan alasan.</p><div className="split"><button className="accept"><CheckCircle2 size={16}/> Terima</button><button className="reject"><XCircle size={16}/> Tolak</button></div></div>
+      <div className="panel"><h3>Dokumen</h3>{data.evidence.map(e=><div className="doc" key={e}><FileText size={16}/>{e}</div>)}</div></aside>
+    </div>
+  </section>;
+}
+
+function Info({ label, value }) { return <div className="infoCard"><span>{label}</span><b>{value}</b></div>; }
+
+function Notifications({ cases, openCase }) { return <section className="page"><div className="pageHeader"><h1>Notifikasi</h1><p>Update penting dan tindakan yang perlu Anda lakukan.</p></div><div className="panel notifList">{cases.map(c=><button key={c.id} onClick={()=>openCase(c.id)} className="notif"><Bell size={18}/><div><b>{c.title}</b><p>{c.userAction || `Status terbaru: ${c.status}`}</p><small>{c.updatedAt}</small></div></button>)}</div></section>; }
+function Profile() { return <section className="page"><div className="pageHeader"><h1>Profil Akun</h1><p>Data ini digunakan untuk validasi kepemilikan pengaduan.</p></div><div className="panel profileGrid"><Input label="Nama Lengkap" value="Andi Pratama" readOnly/><Input label="Email" value="andi.pratama@email.com" readOnly/><Input label="Nomor HP" value="0812-0000-0000" readOnly/><Input label="Status Verifikasi" value="Terverifikasi" readOnly/></div></section>; }
+
+function Input({ label, placeholder, type='text', value, onChange, readOnly }) { return <label className="field"><span>{label}</span><input type={type} placeholder={placeholder} value={value} readOnly={readOnly} onChange={e=>onChange?.(e.target.value)} /></label>; }
+function Select({ label, value, onChange, options }) { return <label className="field"><span>{label}</span><select value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select></label>; }
+function TextArea({ label, value, onChange, placeholder }) { return <label className="field"><span>{label}</span><textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></label>; }
+
+createRoot(document.getElementById('root')).render(<App />);
